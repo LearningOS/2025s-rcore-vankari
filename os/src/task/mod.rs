@@ -45,7 +45,7 @@ pub struct TaskManagerInner {
     tasks: [TaskControlBlock; MAX_APP_NUM],
     /// id of current `Running` task
     current_task: usize,
-    syscall_counters: [[usize; 512]; MAX_APP_NUM],
+    syscall_counters: [[usize; 500]; MAX_APP_NUM],
 }
 
 lazy_static! {
@@ -53,11 +53,10 @@ lazy_static! {
     pub static ref TASK_MANAGER: TaskManager = {
         let num_app = get_num_app();
         let mut tasks = [TaskControlBlock::new(); MAX_APP_NUM]; 
-        let mut syscall_counters = [[0; 512]; MAX_APP_NUM];  // 初始化 syscall_counters
+        let syscall_counters = [[0; 500]; MAX_APP_NUM];  // 初始化 syscall_counters
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
             task.task_status = TaskStatus::Ready;
-            syscall_counters[i] = [0; 512]; 
         }
         TaskManager {
             num_app,
