@@ -45,19 +45,19 @@ pub struct TaskManagerInner {
     tasks: [TaskControlBlock; MAX_APP_NUM],
     /// id of current `Running` task
     current_task: usize,
+    syscall_counters: [[usize; 512]; MAX_APP_NUM],
 }
 
 lazy_static! {
     /// Global variable: TASK_MANAGER
     pub static ref TASK_MANAGER: TaskManager = {
         let num_app = get_num_app();
-        let mut tasks = [TaskControlBlock {
-            task_cx: TaskContext::zero_init(),
-            task_status: TaskStatus::UnInit,
-        }; MAX_APP_NUM];
+        let mut tasks = [TaskControlBlock::new(); MAX_APP_NUM]; 
+        let mut syscall_counters = [[0; 512]; MAX_APP_NUM];  // 初始化 syscall_counters
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
             task.task_status = TaskStatus::Ready;
+            syscall_counters[i] = [0; 512]; 
         }
         TaskManager {
             num_app,
@@ -65,6 +65,7 @@ lazy_static! {
                 UPSafeCell::new(TaskManagerInner {
                     tasks,
                     current_task: 0,
+                    syscall_counters  
                 })
             },
         }
@@ -135,6 +136,24 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+    fn syscall_add(&self,call_id:usize){
+        if call_id>=512 {
+            panic!("Invalid call_id");
+        }
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let syscall_counter=&mut inner.syscall_counters[current];
+        syscall_counter[call_id]=syscall_counter[call_id]+1;
+    }
+    fn systrace_ret(&self,call_id:usize)->usize{
+        if call_id>=512 {
+            panic!("Invalid call_id");
+        }
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let ret = inner.syscall_counters[current][call_id];
+        ret
+    }
 }
 
 /// Run the first task in task list.
@@ -168,4 +187,12 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+///在syscall函数中调用此函数完成对当前任务对应id的syscall_counter++
+pub fn syscall_add(call_id:usize){
+    TASK_MANAGER.syscall_add(call_id)
+}
+///systrace中使用此函数返回当前任务对应id的syscall调用次数
+pub fn systrace_ret(call_id:usize)->usize{
+    TASK_MANAGER.systrace_ret(call_id)
 }

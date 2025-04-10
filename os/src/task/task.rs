@@ -23,3 +23,16 @@ pub enum TaskStatus {
     /// exited
     Exited,
 }
+
+impl TaskControlBlock {
+    /// 该函数将初始化任务的状态为 `UnInit`
+    /// 返回一个新的 `TaskControlBlock` 实例。
+    pub fn new() -> Self {
+        TaskControlBlock {
+            task_status: TaskStatus::UnInit,  // 初始化为 UnInit
+            task_cx: TaskContext::zero_init(),  // 初始化上下文
+        }
+    }
+}
+
+

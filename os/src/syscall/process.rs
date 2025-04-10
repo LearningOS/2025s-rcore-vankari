@@ -37,9 +37,29 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
     }
     0
 }
-
+use crate::task::*;
 // TODO: implement the syscall
-pub fn sys_trace(_trace_request: usize, _id: usize, _data: usize) -> isize {
-    trace!("kernel: sys_trace");
-    -1
+
+pub fn sys_trace(trace_request: usize, id: usize, data: usize) -> isize {
+    match trace_request {
+        0 => {
+            let addr = id as *const u8;
+            unsafe { *addr as isize }
+        }
+        1 => {
+            let addr = id as *mut u8;
+            unsafe {
+                *addr = data as u8;
+            }
+            0
+        }
+        2 => {
+            let res = systrace_ret(id);
+            res as isize
+        }
+        _ => -1,
+    }
 }
+
+
+
