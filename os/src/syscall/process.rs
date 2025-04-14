@@ -21,13 +21,44 @@ pub fn sys_yield() -> isize {
     suspend_current_and_run_next();
     0
 }
-
+use::crate::address::VirtAddr
+use::crate::page_table::PageTable
 /// YOUR JOB: get time with second and microsecond
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
+
+fn vatopa(va:VirtAddr)->Option<PhysAddr>{
+    let offset = va.page_offset();
+    let vpn = va.floor();
+    let ppn = PageTable::from_token(current_user_token())
+        .translate(vpn)
+        .map(|entry| entry.ppn());
+    if let some(ppn) = ppn {
+        Some(PhysAddr::combine(ppn,offset))
+    }
+    else{
+        println!("vatopa() fail");
+        None
+    }
+}
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel: sys_get_time");
-    -1
+    let us = get_time_us();
+    let va=VirtAddr(ts as usize);
+    if let Some(pa) = vatopa(va){
+        let us = get_time_us();
+        let ts_pa = pa.0 as *mut TimeVal;
+        unsafe{
+            *ts_pa = TimeVal {
+                sec: us/1_000_000,
+                usec: us%1_000_000,
+            };
+        }
+        0
+    }
+    else{
+        -1
+    }
 }
 
 /// TODO: Finish sys_trace to pass testcases
