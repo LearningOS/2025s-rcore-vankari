@@ -21,8 +21,8 @@ pub fn sys_yield() -> isize {
     suspend_current_and_run_next();
     0
 }
-use::crate::address::VirtAddr;
-use::crate::page_table::{PageTable,PageTableEntry};
+use::crate::address::*;
+use::crate::page_table::*;
 /// YOUR JOB: get time with second and microsecond
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
@@ -104,7 +104,25 @@ pub fn sys_trace(_trace_request: usize, _id: usize, _data: usize) -> isize {
 // YOUR JOB: Implement mmap.
 pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
     trace!("kernel: sys_mmap NOT IMPLEMENTED YET!");
-    -1
+    let va = VirtAddr(_start);
+    if va.aligned() {
+        match _prot{
+            0 => {
+                -1
+            }
+            1 | 2 | 3 | 4 | 5 | 6 | 7 => {
+                let mut p = _start;
+                while p < _start+_len {
+                    
+                    p += PAGE_SIZE;
+                }
+            }
+            _ => -1,
+        }
+    }
+    else{
+        -1
+    }
 }
 
 // YOUR JOB: Implement munmap.
