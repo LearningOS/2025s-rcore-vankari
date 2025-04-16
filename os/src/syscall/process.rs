@@ -21,8 +21,8 @@ pub fn sys_yield() -> isize {
     suspend_current_and_run_next();
     0
 }
-use::crate::address::VirtAddr
-use::crate::page_table::PageTable
+use::crate::address::VirtAddr;
+use::crate::page_table::{PageTable,PageTableEntry};
 /// YOUR JOB: get time with second and microsecond
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
@@ -33,7 +33,7 @@ fn vatopa(va:VirtAddr)->Option<PhysAddr>{
     let ppn = PageTable::from_token(current_user_token())
         .translate(vpn)
         .map(|entry| entry.ppn());
-    if let some(ppn) = ppn {
+    if let Some(ppn) = ppn {
         Some(PhysAddr::combine(ppn,offset))
     }
     else{
@@ -44,7 +44,7 @@ fn vatopa(va:VirtAddr)->Option<PhysAddr>{
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel: sys_get_time");
     let us = get_time_us();
-    let va=VirtAddr(ts as usize);
+    let va = VirtAddr(ts as usize);
     if let Some(pa) = vatopa(va){
         let us = get_time_us();
         let ts_pa = pa.0 as *mut TimeVal;
@@ -65,7 +65,40 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
 /// HINT: You might reimplement it with virtual memory management.
 pub fn sys_trace(_trace_request: usize, _id: usize, _data: usize) -> isize {
     trace!("kernel: sys_trace");
-    -1
+    let va = VirtAddr(_id);
+    if let Some(pa) = vatopa(va){
+        match trace_request {
+            0 => {
+                if PageTableEntry::readable(va.floor()){
+                    let addr = pa as *const u8;
+                    unsafe { *addr as isize }
+                }
+                else{
+                    -1
+                }
+            }
+            1 => {
+                if PageTableEntry::writable(va.floor()){
+                    let addr = pa as *mut u8;
+                    unsafe {
+                        *addr = _data as u8;
+                    }
+                    0
+                }
+                else{
+                    -1
+                }
+            }
+            2 => {
+                let res = systrace_ret(_id);
+                res as isize
+            }
+            _ => -1,
+        }
+    }
+    else{
+        -1
+    }
 }
 
 // YOUR JOB: Implement mmap.
