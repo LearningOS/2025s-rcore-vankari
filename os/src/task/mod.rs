@@ -222,3 +222,11 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
 }
+///在syscall函数中调用此函数完成对当前任务对应id的syscall_counter++
+pub fn syscall_add(call_id:usize){
+    TASK_MANAGER.syscall_add(call_id)
+}
+///systrace中使用此函数返回当前任务对应id的syscall调用次数
+pub fn systrace_ret(call_id:usize)->usize{
+    TASK_MANAGER.systrace_ret(call_id)
+}
