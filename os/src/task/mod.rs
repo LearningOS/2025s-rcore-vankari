@@ -153,6 +153,25 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    fn syscall_add(&self,call_id:usize){
+        if call_id>=512 {
+            panic!("Invalid call_id");
+        }
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let syscall_counter=&mut inner.syscall_counters[current];
+        syscall_counter[call_id]=syscall_counter[call_id]+1;
+    }
+    fn systrace_ret(&self,call_id:usize)->usize{
+        if call_id>=512 {
+            panic!("Invalid call_id");
+        }
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let ret = inner.syscall_counters[current][call_id];
+        ret
+    }
 }
 
 /// Run the first task in task list.
