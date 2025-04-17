@@ -1,6 +1,6 @@
 //! Implementation of [`PageTableEntry`] and [`PageTable`].
 
-use super::{frame_alloc, FrameTracker, PhysPageNum, StepByOne, VirtAddr, VirtPageNum};
+use super::{frame_alloc, FrameTracker, PhysPageNum, StepByOne, VirtAddr, VirtPageNum,PhysAddr};
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
@@ -70,6 +70,10 @@ impl PageTableEntry {
     pub fn executable(&self) -> bool {
         (self.flags() & PTEFlags::X) != PTEFlags::empty()
     }
+    ///
+    pub fn user_accessible(&self) ->bool{
+        (self.flags() & PTEFlags::U) != PTEFlags::empty()
+    }
 }
 
 /// page table structure
@@ -116,7 +120,7 @@ impl PageTable {
         result
     }
     /// Find PageTableEntry by VirtPageNum
-    fn find_pte(&self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
+    pub fn find_pte(&self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
         let mut result: Option<&mut PageTableEntry> = None;
@@ -178,4 +182,15 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
         start = end_va.into();
     }
     v
+}
+
+/// translate&copy a*mut T array to amutable u8 vec through pagetable
+pub fn translated_struct_ptr<T>(token:usize, ptr: *mut T)->&'static mut T{
+    let page_table = PageTable::from_token(token);
+    let va = VirtAddr::from(ptr as usize);
+    let offset = va.page_offset();
+    let vpn = va.floor();
+    let mut pa: PhysAddr = page_table.translate(vpn).unwrap().ppn().into();
+    pa.0 += offset;
+    pa.get_mut()
 }

@@ -46,7 +46,6 @@ struct TaskManagerInner {
     tasks: Vec<TaskControlBlock>,
     /// id of current `Running` task
     current_task: usize,
-    syscall_counters: [[usize; MAX_SYSCALL_NUM]; MAX_APP_NUM],
 }
 
 lazy_static! {
@@ -156,22 +155,33 @@ impl TaskManager {
     }
 
     fn syscall_add(&self,call_id:usize){
-        if call_id>=512 {
+        if call_id>=500 {
             panic!("Invalid call_id");
         }
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        let syscall_counter=&mut inner.syscall_counters[current];
-        syscall_counter[call_id]=syscall_counter[call_id]+1;
+        inner.tasks[current].add_syscall_ctr(call_id);
     }
     fn systrace_ret(&self,call_id:usize)->usize{
-        if call_id>=512 {
+        if call_id>=500 {
             panic!("Invalid call_id");
         }
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        let ret = inner.syscall_counters[current][call_id];
+        let ret = inner.tasks[current].get_syscall_ctr(call_id);
         ret
+    }
+
+    fn mmap(&self, start: usize, len: usize, port: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current_task = inner.current_task;
+        inner.tasks[current_task].memory_set.mmap(start, len, port)
+    }
+
+    fn unmmap(&self, start: usize, len: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current_task = inner.current_task;
+        inner.tasks[current_task].memory_set.unmmap(start, len)
     }
 }
 
@@ -222,11 +232,20 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
 }
-///在syscall函数中调用此函数完成对当前任务对应id的syscall_counter++
+///
 pub fn syscall_add(call_id:usize){
-    TASK_MANAGER.syscall_add(call_id)
+    TASK_MANAGER.syscall_add(call_id);
 }
-///systrace中使用此函数返回当前任务对应id的syscall调用次数
+///
 pub fn systrace_ret(call_id:usize)->usize{
     TASK_MANAGER.systrace_ret(call_id)
+}
+///
+pub fn cur_mmap(start: usize, len: usize, port: usize) -> isize {
+    TASK_MANAGER.mmap(start, len, port)
+}
+
+/// 
+pub fn cur_unmmap(start: usize, len: usize) -> isize {
+    TASK_MANAGER.unmmap(start, len)
 }
