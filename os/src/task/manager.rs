@@ -1,9 +1,10 @@
 //!Implementation of [`TaskManager`]
-use super::TaskControlBlock;
+use super::{TaskControlBlock, TaskStatus};
 use crate::sync::UPSafeCell;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use lazy_static::*;
+use core::cmp;
 ///A array of `TaskControlBlock` that is thread-safe
 pub struct TaskManager {
     ready_queue: VecDeque<Arc<TaskControlBlock>>,
@@ -23,6 +24,18 @@ impl TaskManager {
     }
     /// Take a process out of the ready queue
     pub fn fetch(&mut self) -> Option<Arc<TaskControlBlock>> {
+        self.ready_queue.make_contiguous().sort_by(|x, y| {
+            let inner_x = x.inner_exclusive_access();
+            let inner_y = y.inner_exclusive_access();
+            match (inner_x.task_status, inner_y.task_status) {
+                (TaskStatus::Ready, TaskStatus::Ready) => {
+                    inner_x.stride.cmp(&inner_y.stride)
+                }
+                (TaskStatus::Ready, _) => cmp::Ordering::Less,
+                (_, TaskStatus::Ready) => cmp::Ordering::Greater,
+                _ => cmp::Ordering::Equal,
+            }
+        });
         self.ready_queue.pop_front()
     }
 }
