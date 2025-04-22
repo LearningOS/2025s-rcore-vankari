@@ -1,15 +1,16 @@
 //! Process management syscalls
+//!
 use alloc::sync::Arc;
 
 use crate::{
-    loader::get_app_data_by_name,
+    fs::{open_file, OpenFlags},
     mm::{translated_refmut, translated_str},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
-        suspend_current_and_run_next,cur_task_to_mmap,cur_task_to_munmap,TaskControlBlock,
+        suspend_current_and_run_next,
     },
-    timer::get_time_us,
 };
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct TimeVal {
@@ -55,9 +56,10 @@ pub fn sys_exec(path: *const u8) -> isize {
     trace!("kernel:pid[{}] sys_exec", current_task().unwrap().pid.0);
     let token = current_user_token();
     let path = translated_str(token, path);
-    if let Some(data) = get_app_data_by_name(path.as_str()) {
+    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+        let all_data = app_inode.read_all();
         let task = current_task().unwrap();
-        task.exec(data);
+        task.exec(all_data.as_slice());
         0
     } else {
         -1
