@@ -1,29 +1,6 @@
 //! File and filesystem-related syscalls
-<<<<<<< HEAD
-use crate::mm::translated_byte_buffer;
-use crate::sbi::console_getchar;
-use crate::task::{current_task, current_user_token, suspend_current_and_run_next};
-
-const FD_STDIN: usize = 0;
-const FD_STDOUT: usize = 1;
-
-/// write buf of length `len`  to a file with `fd`
-pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
-    trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
-    match fd {
-        FD_STDOUT => {
-            let buffers = translated_byte_buffer(current_user_token(), buf, len);
-            for buffer in buffers {
-                print!("{}", core::str::from_utf8(buffer).unwrap());
-            }
-            len as isize
-        }
-        _ => {
-            panic!("Unsupported fd in sys_write!");
-        }
-=======
-use crate::fs::{open_file, OpenFlags, Stat};
-use crate::mm::{translated_byte_buffer, translated_str, UserBuffer};
+use crate::fs::{open_file, OpenFlags, Stat,linkat,unlinkat};
+use crate::mm::{translated_byte_buffer, translated_str, UserBuffer,translated_refmut};
 use crate::task::{current_task, current_user_token};
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
@@ -44,38 +21,11 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
         file.write(UserBuffer::new(translated_byte_buffer(token, buf, len))) as isize
     } else {
         -1
->>>>>>> origin/ch6
     }
 }
 
 pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_read", current_task().unwrap().pid.0);
-<<<<<<< HEAD
-    match fd {
-        FD_STDIN => {
-            assert_eq!(len, 1, "Only support len = 1 in sys_read!");
-            let mut c: usize;
-            loop {
-                c = console_getchar();
-                if c == 0 {
-                    suspend_current_and_run_next();
-                    continue;
-                } else {
-                    break;
-                }
-            }
-            let ch = c as u8;
-            let mut buffers = translated_byte_buffer(current_user_token(), buf, len);
-            unsafe {
-                buffers[0].as_mut_ptr().write_volatile(ch);
-            }
-            1
-        }
-        _ => {
-            panic!("Unsupported fd in sys_read!");
-        }
-    }
-=======
     let token = current_user_token();
     let task = current_task().unwrap();
     let inner = task.inner_exclusive_access();
@@ -131,7 +81,22 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
         "kernel:pid[{}] sys_fstat NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    let stat = translated_refmut(current_user_token(), _st);
+
+    let task = current_task().unwrap();
+    let inner = task.inner_exclusive_access();
+    if _fd >= inner.fd_table.len() {
+        debug!("too big fd!");
+        return -1;
+    }
+
+    match &inner.fd_table[_fd] {
+        Some(file) => {
+            let file = file.clone();
+            file.fstat(stat)
+        }
+        None => -1,
+    }
 }
 
 /// YOUR JOB: Implement linkat.
@@ -140,7 +105,14 @@ pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
         "kernel:pid[{}] sys_linkat NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    // trace!("kernel:pid[{}] sys_linkat", current_task().unwrap().pid.0);
+    let token = current_user_token();
+    let old_name = translated_str(token, _old_name);
+    let new_name = translated_str(token, _new_name);
+    if old_name.eq(new_name.as_str()) {
+        return -1;
+    }
+    linkat(old_name.as_str(), new_name.as_str())
 }
 
 /// YOUR JOB: Implement unlinkat.
@@ -149,6 +121,9 @@ pub fn sys_unlinkat(_name: *const u8) -> isize {
         "kernel:pid[{}] sys_unlinkat NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
->>>>>>> origin/ch6
+    // trace!("kernel:pid[{}] sys_linkat", current_task().unwrap().pid.0);
+    let token = current_user_token();
+    let name = translated_str(token, _name);
+
+    unlinkat(name.as_str())
 }

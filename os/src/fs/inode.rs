@@ -13,7 +13,7 @@ use alloc::vec::Vec;
 use bitflags::*;
 use easy_fs::{EasyFileSystem, Inode};
 use lazy_static::*;
-
+use crate::fs::StatMode;
 /// inode in memory
 /// A wrapper around a filesystem inode
 /// to implement File trait atop
@@ -70,7 +70,15 @@ pub fn list_apps() {
     }
     println!("**************/");
 }
+/// linkat
+pub fn linkat(_old_name: &str, _new_name: &str) -> isize {
+    ROOT_INODE.add_link(_old_name, _new_name)
+}
 
+/// unlinkat
+pub fn unlinkat(_name: &str) -> isize {
+    ROOT_INODE.remove_link(_name)
+}
 bitflags! {
     ///  The flags argument to the open() system call is constructed by ORing together zero or more of the following values:
     pub struct OpenFlags: u32 {
@@ -155,5 +163,18 @@ impl File for OSInode {
             total_write_size += write_size;
         }
         total_write_size
+    }
+    fn fstat(&self, stat: &mut super::Stat) -> isize {
+        stat.dev = 0;
+        let inner_inode = &self.inner.exclusive_access().inode;
+        match inner_inode.fstat_statmode() {
+            1 => stat.mode = StatMode::FILE,
+            2 => stat.mode = StatMode::DIR,
+            _ => stat.mode = StatMode::NULL,
+        };
+        stat.ino = inner_inode.fstat_inode_id();
+
+        stat.nlink = inner_inode.fstat_nlink();
+        0
     }
 }

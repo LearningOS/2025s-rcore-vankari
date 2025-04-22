@@ -86,6 +86,7 @@ pub struct DiskInode {
     pub indirect1: u32,
     pub indirect2: u32,
     type_: DiskInodeType,
+    pub refcont: u32,
 }
 
 impl DiskInode {
@@ -97,6 +98,7 @@ impl DiskInode {
         self.indirect1 = 0;
         self.indirect2 = 0;
         self.type_ = type_;
+        self.refcont = 1; 
     }
     /// Whether this inode is a directory
     pub fn is_dir(&self) -> bool {
@@ -386,6 +388,24 @@ impl DiskInode {
             start = end_current_block;
         }
         write_size
+    }
+    pub fn decrease_refcont(&mut self) {
+        self.refcont -= 1;
+    }
+
+    pub fn increase_refcont(&mut self) {
+        self.refcont += 1;
+    }
+
+    pub fn can_remove(&self) -> bool {
+        self.refcont == 0
+    }
+    /// 获取文件类型
+    pub fn get_statmode(&self) -> usize {
+        match self.type_ {
+            DiskInodeType::File => 1,
+            DiskInodeType::Directory => 2,
+        }
     }
 }
 /// A directory entry

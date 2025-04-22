@@ -35,11 +35,7 @@ DISASM ?= -x
 # Run usertests or usershell
 TEST ?=
 
-<<<<<<< HEAD
-build: env $(KERNEL_BIN)
-=======
 build: env $(KERNEL_BIN) fs-img 
->>>>>>> origin/ch6
 
 env:
 ifeq ($(OFFLINE),)
@@ -52,14 +48,11 @@ endif
 $(KERNEL_BIN): kernel
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
 
-<<<<<<< HEAD
-=======
 fs-img: $(APPS)
 	@make -C ../user build TEST=$(TEST) CHAPTER=$(CHAPTER) BASE=$(BASE)
 	@rm -f $(FS_IMG)
 	@cd ../easy-fs-fuse && cargo run --release -- -s ../user/build/app/ -t ../user/target/riscv64gc-unknown-none-elf/release/
 
->>>>>>> origin/ch6
 kernel:
 	@make -C ../user build TEST=$(TEST) CHAPTER=$(CHAPTER) BASE=$(BASE)
 	@echo Platform: $(BOARD)
@@ -76,26 +69,16 @@ disasm-vim: kernel
 	@vim $(DISASM_TMP)
 	@rm $(DISASM_TMP)
 
-<<<<<<< HEAD
-run: run-inner
-
-run-inner: build
-=======
 run: build run-inner
 
 run-inner:
->>>>>>> origin/ch6
 	@qemu-system-riscv64 \
 		-machine virt \
 		-nographic \
 		-bios $(BOOTLOADER) \
-<<<<<<< HEAD
-		-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA)
-=======
 		-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) \
 		-drive file=$(FS_IMG),if=none,format=raw,id=x0 \
         -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
->>>>>>> origin/ch6
 
 debug: build
 	@tmux new-session -d \
@@ -103,18 +86,10 @@ debug: build
 		tmux split-window -h "riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
 		tmux -2 attach-session -d
 
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/ch6
 gdbserver: build
 	@qemu-system-riscv64 -machine virt -nographic -bios $(BOOTLOADER) -device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) -s -S
 
 gdbclient:
 	@riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'
 
-<<<<<<< HEAD
-.PHONY: build env kernel clean disasm disasm-vim run-inner gdbserver gdbclient
-=======
 .PHONY: build env kernel clean disasm disasm-vim run-inner fs-img gdbserver gdbclient
->>>>>>> origin/ch6
