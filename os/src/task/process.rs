@@ -49,6 +49,12 @@ pub struct ProcessControlBlockInner {
     pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
     /// condvar list
     pub condvar_list: Vec<Option<Arc<Condvar>>>,
+    /// mutex available
+    pub m_ava: Vec<usize>,
+    /// semaphore available
+    pub s_ava: Vec<usize>,
+    /// if deadlock
+    pub deadlock: bool,
 }
 
 impl ProcessControlBlockInner {
@@ -81,6 +87,20 @@ impl ProcessControlBlockInner {
     /// get a task with tid in this process
     pub fn get_task(&self, tid: usize) -> Arc<TaskControlBlock> {
         self.tasks[tid].as_ref().unwrap().clone()
+    }
+    /// adjust m_ava
+    pub fn adjust_m_ava(&mut self, id: usize, num:usize){
+        if self.m_ava.len()<id+1{
+            self.m_ava.resize(id+1,0);
+        }
+        self.m_ava[id]+=num;
+    }
+    /// adjust s_ava
+    pub fn adjust_s_ava(&mut self, id: usize, num:usize){
+        if self.s_ava.len()<id+1{
+            self.s_ava.resize(id+1,0);
+        }
+        self.s_ava[id]+=num;
     }
 }
 
@@ -119,6 +139,9 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    m_ava: Vec::new(),
+                    s_ava: Vec::new(),
+                    deadlock: false,
                 })
             },
         });
@@ -245,6 +268,9 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    m_ava: parent.m_ava.clone(),
+                    s_ava: parent.s_ava.clone(),
+                    deadlock: parent.deadlock,
                 })
             },
         });

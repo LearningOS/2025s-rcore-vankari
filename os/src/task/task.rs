@@ -5,6 +5,8 @@ use super::{kstack_alloc, KernelStack, ProcessControlBlock, TaskContext};
 use crate::trap::TrapContext;
 use crate::{mm::PhysPageNum, sync::UPSafeCell};
 use alloc::sync::{Arc, Weak};
+use alloc::vec::Vec;
+use alloc::vec;
 use core::cell::RefMut;
 
 /// Task control block structure
@@ -41,6 +43,14 @@ pub struct TaskControlBlockInner {
     pub task_status: TaskStatus,
     /// It is set when active exit or execution error occurs
     pub exit_code: Option<i32>,
+    /// m_alloc
+    pub m_alloc: Vec<usize>,
+    /// s_alloc
+    pub s_alloc: Vec<usize>,
+    /// m_need
+    pub m_need: Vec<usize>,
+    /// s_need
+    pub s_need: Vec<usize>,
 }
 
 impl TaskControlBlockInner {
@@ -51,6 +61,40 @@ impl TaskControlBlockInner {
     #[allow(unused)]
     fn get_status(&self) -> TaskStatus {
         self.task_status
+    }
+    /// adjust.m_allocation
+    pub fn adjust_m_alloc(&mut self, id: usize, num: usize) {
+        
+        if self.m_alloc.len() < id + 1 {
+            self.m_alloc.resize(id + 1, 0);
+        }
+        self.m_alloc[id] += num;
+    }
+
+    /// adjst.s_alloc
+    pub fn adjust_s_alloc(&mut self, id: usize, num: usize) {
+        if self.s_alloc.len() < id+1 {
+            self.s_alloc.resize(id+1, 0);
+        }
+        self.s_alloc[id] += num;
+    }
+
+    /// adjust.m_need
+    pub fn adjust_m_need(&mut self, id: usize, num: usize) {
+        
+        if self.m_need.len() < id + 1 {
+            self.m_need.resize(id + 1, 0);
+        }
+        self.m_need[id] += num;
+    }
+
+    /// adjust s_need
+    pub fn adjust_s_need(&mut self, id: usize, num: usize) {
+        
+        if self.s_need.len() < id + 1{
+            self.s_need.resize(id + 1, 0);
+        }
+        self.s_need[id] += num;
     }
 }
 
@@ -65,6 +109,7 @@ impl TaskControlBlock {
         let trap_cx_ppn = res.trap_cx_ppn();
         let kstack = kstack_alloc();
         let kstack_top = kstack.get_top();
+        let process_inner = process.inner_exclusive_access();
         Self {
             process: Arc::downgrade(&process),
             kstack,
@@ -75,6 +120,10 @@ impl TaskControlBlock {
                     task_cx: TaskContext::goto_trap_return(kstack_top),
                     task_status: TaskStatus::Ready,
                     exit_code: None,
+                    m_alloc: vec![0;process_inner.mutex_list.len()],
+                    s_alloc: vec![0;process_inner.semaphore_list.len()],
+                    m_need: vec![0;process_inner.mutex_list.len()],
+                    s_need: vec![0;process_inner.semaphore_list.len()],
                 })
             },
         }
